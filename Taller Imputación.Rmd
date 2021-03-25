@@ -1,0 +1,107 @@
+---
+title: "Imputación de Datos"
+date: "`r Sys.Date()`"
+author: " Lizeth Moreno"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+```{r include=FALSE}
+library(tidyverse)
+library(magrittr)
+library(readxl)
+library(VIM)
+library(mice)
+
+```
+
+```{r include=FALSE}
+portantes_Fondo_original <- read_excel("Base imputacion/Aportantes_Fondo_Im.xlsx", 
+                              col_types = c("text", "text", "text", 
+                                            "date", "text", "date", "numeric", 
+                                            "numeric", "numeric", "numeric", 
+                                            "text", "numeric", "text","numeric",
+                                            "numeric"))
+
+
+portantes_Fondo<-portantes_Fondo_original %>% 
+  select(CODIGO,NOMBRE,SEXO,REMUNERACION_MES,FE_NAC,FE_ING_FONDO,
+         PC_APORTE,MONTO_APO,ESTADO_CIVIL,CATEGORIA,GENERO,CATEGORIA,E_CIVIL) %>% 
+  mutate(años=round((FE_ING_FONDO-FE_NAC)/365)) %>% 
+  mutate(SEXO=factor(SEXO)) %>% 
+  mutate(años=as.numeric(años)) %>% 
+  mutate(CATEGORIA=as.factor(CATEGORIA))
+
+```
+
+
+
+
+
+# Introducción 
+
+Los datos faltantes son un problema que surge con mucha frecuencia cuando necesitamos analizar nuestros datos, crea una dificultad en nuestro investigación debido a que un  manejo inadecuado de los datos faltantes puede conducir a  un posterior análisis estadístico erróneo. Los valores faltantes serán aquellos que para una variable determinada no consta en algunas filas o patrones. El motivo por el cual se produce esto puede ir desde fallos en los instrumentos de medida o incluso olvidos del usuario al momento de ingresar sus datos. 
+
+El objetivo de este taller es realizar un análisis descriptivo de la cantidad de datos faltantes en nuestro conjunto de datos (Seguros de vida) con un porcentaje bajo de datos faltantes del 7% para posteriormente realizar una imputación de datos. 
+
+##Análsis descriptivo
+
+Antes de empezar a utilizar una técnica para tratamiento de valores faltantes es importante, es por esto que empezamos verificando que el porcentaje de valores faltantes en nuestra base de datos Aportantes_Fondo no supere el 20% .
+El código implementado en R nos muestra que nuestra base de datos tiene un porcentaje de 7.417...% de datos faltaltes.
+
+```{r echo=FALSE}
+porcentajeNA<- function(x){
+  porcentaje<- mean(is.na(x))*100
+  return(porcentaje)
+}
+porcentajeNA(portantes_Fondo$MONTO_APO)
+count(portantes_Fondo)
+```
+Por otro lado contamos el total de NAs en la base de datos
+```{r echo=FALSE}
+sum(is.na(portantes_Fondo))
+```
+La siguiente tabla nos indica el número de valores faltantes por columna de cada una de las variables. Lo que indica que la variable Monto de aporte tiene 52 datos faltantes.
+```{r echo=FALSE}
+colSums(is.na(portantes_Fondo))
+```
+##Clasificación de los datos perdidos
+
+Otro aspecto importante es la clasificación de los datos perdidos. MCAR(Missing Completely At Random) , MAR(Desaparecido al azar) y NMAR(No falta al azar).
+
+```{r echo=FALSE}
+aggr(portantes_Fondo,numbers=T,sortVar=T)
+```
+##Imputación con la media
+
+El método de sustitución por la media, como es de esperar, solo se le aplicó debido a que trabajamos con variables de tipo numérico. En este caso la media de la variable "Monto de aporte" es , entonces imputaremos este valor en la muestra.
+
+Se crea un data frame con los datos que mantengan valores faltantes y luego se elimina aquellas muestras que no están completas, es decir, descartamos aquellas que tienen valores perdidos.
+
+```{r echo=FALSE}
+df <- as.data.frame(list(portantes_Fondo$MONTO_APO))
+df <- df[complete.cases(df), ]
+```
+
+Luego de la eliminación se procede a imputar los datos faltantes con una estimación  como la media . En este procedimiento se debe tener cuidado ya que, dependiendo del objetivo del estudio, las variables "descartadas" podrían contener información de vital importancia.
+```{r echo=FALSE}
+#df[is.na(df$MONTO_APO), "MONTO_APO"] <- mean(df$MONTO_APO, na.rm=T)
+```
+La nueva base de datos con los valores imputados es la siguiente
+```{r echo=FALSE}
+view(portantes_Fondo$MONTO_APO)
+```
+
+
+
+```{r eval=FALSE, include=FALSE}
+#########este es otro método de la media pero no me salió xdddd alguien revise el error.
+columns <- c("df")
+imputed_data <- mice(data = portantes_Fondo[,names(portantes_Fondo) %in% columns],m = 1,
+  maxit = 1, method = "mean",seed = 2018,print=F)
+complete.data <- mice::complete(imputed_data)
+
+
+xyplot(imputed_data,rad ~ptratio)
+```
+
